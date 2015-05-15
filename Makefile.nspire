@@ -1,0 +1,19 @@
+CC	= nspire-gcc
+LAMENES		= n2DLib.c main.c lamenes.c lame6502/lame6502.c lame6502/disas.c lame6502/debugger.c lib/str_chrchk.c lib/str_cut.c sdl_functions.c romloader.c ppu.c input.c lib/str_replace.c
+OBJ_FLAG	= -Wl,--as-needed -Wl,-gc-sections -Dndlib -DNSPIRE -O2 -fomit-frame-pointer -lm;
+
+lamenes:	$(LAMENES)
+		$(CC) $(LAMENES) $(OBJ_FLAG)
+		mv a.out lamenes.tns
+		genzehn --input lamenes.tns --output lamenes_gen.tns --compress
+		make-prg lamenes_gen.tns lamenes.tns
+		rm ./lamenes_gen.tns
+
+install:	$(LAMENES)
+		cp lamenes /usr/local/bin
+
+uninstall:	$(LAMENES)
+		rm /usr/local/bin/lamenes
+
+clean:		$(LAMENES)
+		rm -f lamenes lamenes.core core.*

@@ -1,0 +1,22 @@
+CC	= kos-gcc
+SH_DIRECTORY =/opt/toolchains/dc/sh-elf/bin/
+
+LAMENES	= main.c lamenes.c lame6502/lame6502.c lame6502/disas.c lame6502/debugger.c lib/str_chrchk.c lib/str_cut.c sdl_functions.c romloader.c ppu.c input.c lib/str_replace.c
+OBJ_FLAG	= -Wl,--as-needed -Wl,-gc-sections -Ofast -fomit-frame-pointer -fno-math-errno -fgcse-sm -fgcse-las -funsafe-loop-optimizations -fno-fat-lto-objects -frename-registers -fprefetch-loop-arrays -ffunction-sections -fdata-sections -lSDL -lm;
+
+lamenes:	$(LAMENES)
+		$(CC) $(LAMENES) $(OBJ_FLAG)
+		mv a.out lamenes.elf
+		${SH_DIRECTORY}sh-elf-objcopy -R .stack -O binary lamenes.elf lamenes.bin
+		mv lamenes.bin ./BOOT.BIN
+		mv ./BOOT.BIN ./DC/BOOT.BIN
+		rm ./lamenes.elf
+
+install:	$(LAMENES)
+		cp lamenes /usr/local/bin
+
+uninstall:	$(LAMENES)
+		rm /usr/local/bin/lamenes
+
+clean:		$(LAMENES)
+		rm -f lamenes lamenes.core core.*
