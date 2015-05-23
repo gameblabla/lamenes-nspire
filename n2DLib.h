@@ -1,3 +1,5 @@
+#ifdef ndlib
+
 #ifndef INCLUDE_GRAFX
 #define INCLUDE_GRAFX
 
@@ -77,6 +79,8 @@ extern int isKey(t_key, t_key);
 extern unsigned short *BUFF_BASE_ADDRESS;
 #ifdef __cplusplus
 }
+#endif
+
 #endif
 
 #endif

@@ -1,8 +1,4 @@
-#ifdef NSPIRE
-	#define MAX_LENGH 254
-#else
-	#define MAX_LENGH 5000
-#endif
+#define MAX_LENGH 254
 #define EXECUTE_APP
 
 /*	Colors	*/
@@ -31,5 +27,5 @@ unsigned char clear_dir(char* which_dir);
 void set_fileid();
 
 #ifdef EXECUTE_APP
-	void lamenes(char* romfn);
+	void lamenes(char* rom_name);
 #endif

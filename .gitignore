@@ -5,6 +5,7 @@
 *.zip
 *.exe
 *.DLL
+*.dll
 roms/
 lame6502/*.o
 lib/*.o

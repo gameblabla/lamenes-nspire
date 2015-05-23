@@ -82,6 +82,8 @@ int scanline_refresh;
 int ntsc = 0;
 int pal = 1;
 
+int FPS = 60;
+
 int CPU_is_running = 1;
 int pause_emulation = 0;
 
@@ -519,6 +521,16 @@ void usage(char *pname)
 	exit(1);
 }
 
+void framerate_set()
+{
+	Uint32 start;
+	start = SDL_GetTicks();
+	
+	if(1000/FPS > SDL_GetTicks()-start) 
+		SDL_Delay(1000/FPS-(SDL_GetTicks()-start));	
+}
+
+
 void start_emulation()
 {
 	int counter = 0;
@@ -591,7 +603,6 @@ void start_emulation()
 
 			render_background(scanline);
 			
-			//counter += CPU_execute(scanline_refresh);
 			counter += CPU_execute(scanline_refresh);
 
 			if(mmc3_irq_enable == 1) 
@@ -600,7 +611,6 @@ void start_emulation()
 					//printf("[%d] mmc3_irq_counter = %d\n",debug_cnt,mmc3_irq_counter);
 					IRQ(counter);
 					mmc3_irq_counter--;
-
 					//break;
 				}
 			}
@@ -619,14 +629,14 @@ void start_emulation()
 			update_screen();
 			
 #ifndef NSPIRE
-		SDL_Delay(sdl_delay);
+		framerate_set();
 #endif
 
-		//skipframe++;
+		skipframe++;
 
-		//if(!interrupt_flag) {
-		//	counter += IRQ(counter);
-		//}
+		if(!interrupt_flag) {
+			counter += IRQ(counter);
+		}
 
 		check_SDL_event();
 	}
@@ -714,7 +724,6 @@ void lamenes(char* romfn)
 		free(ppu_memory);
 		free(memory);
 		done_lamenes = 0;
-		//exit(1);
 	}
 
 	/* rom cache memory */
@@ -802,6 +811,7 @@ void lamenes(char* romfn)
 	}
 
 	if(pal == 1) {
+		FPS = 50;
 		start_int = 341;
 		vblank_int = PAL_VBLANK_INT;
 		vblank_cycle_timeout = PAL_VBLANK_CYCLE_TIMEOUT;
@@ -809,6 +819,7 @@ void lamenes(char* romfn)
 	}
 
 	if(ntsc == 1) {
+		FPS = 60;
 		start_int = 325;
 		vblank_int = NTSC_VBLANK_INT;
 		vblank_cycle_timeout = NTSC_VBLANK_CYCLE_TIMEOUT;
@@ -823,6 +834,4 @@ void lamenes(char* romfn)
 		check_SDL_event();
 	}
 
-	/* never reached */
-	//return(0);
 }

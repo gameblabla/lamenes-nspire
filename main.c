@@ -17,8 +17,8 @@
 */
 
 /*
- * Simple File Browser 
- * A simple file browser mainly targetting the TI nspire using SDL.
+ * nFile Browser 
+ * Simple file browser mainly targetting the TI nspire using SDL.
  * Can also be used on other platforms as a simple file browser.
  * On TI Nspire, it can launch Ndless applications.
 */
@@ -59,17 +59,20 @@
 	SDL_Event gui_event;
 #endif
 
-char file_name[MAX_LENGH][MAX_LENGH];
+char file_name[MAX_LENGH][1024];
 short file_type[MAX_LENGH];
 
 char* currentdir;
+char* last_folder;
 
 /* Maybe i should just use a structure instead here ?*/
-unsigned char esc, up_button, down_button, ctrl_button;
-unsigned char UP_state = 0, UP_time = 0;
-unsigned char DOWN_state = 0, DOWN_time = 0;
-unsigned char ESC_state = 0, ESC_time = 0;
-unsigned char CTRL_state = 0, CTRL_time = 0;
+unsigned char esc, up_button, down_button, ctrl_button, backspace_button;
+
+unsigned char UP_state, UP_time;
+unsigned char DOWN_state, DOWN_time;
+unsigned char ESC_state, ESC_time;
+unsigned char CTRL_state, CTRL_time;
+unsigned char BACKSPACE_state, BACKSPACE_time;
 
 /* This was done in order to save some memory on limited platforms*/
 #if MAX_LENGH < 255
@@ -89,10 +92,10 @@ unsigned char CTRL_state = 0, CTRL_time = 0;
 	unsigned long numb_files;
 #endif
 
-#define BLUE_C  255
-#define GREEN_C 512
-#define TUR_C 750
-#define F_C  1023
+unsigned char delete_file_screen();
+void clear_entirescreen();
+void update_entirescreen();
+
 
 void init(void) 
 {
@@ -107,9 +110,9 @@ void init(void)
 	#else
 		gui_screen = SDL_SetVideoMode(320, 240, 16, SDL_SWSURFACE ); 
 	#endif
-
+	
 	SDL_ShowCursor(SDL_DISABLE);
-	SDL_WM_SetCaption("SDL File Browser", NULL);
+	SDL_WM_SetCaption("LameNES - Choose NES ROM", NULL);
 #endif
 	
 	up_button = 0;
@@ -134,27 +137,31 @@ void init(void)
 	scroll_choice = 0;
 }
 
-
-int main(int argc, char *argv[]) 
+int main(int argc, char* argv[]) 
 {
-	/* Buffer to hold the current directory */
+	/* Buffer to hold =>the current directory */
 	char* buf = NULL;
+	unsigned char exit_app = 0;
+#ifdef EXECUTE_APP
 	unsigned char file_chosen;
 	unsigned char done = 1;
-	unsigned char exit_app = 0;
-	file_chosen = 0;
+#endif
 	
 	/* Temporary array, used for starting executable*/
-	char final[128];
+	char final[MAX_LENGH];
 	
 	/* Init video and variables */
 	init();
+	
+	clear_entirescreen();
 	
 	/* Set it to the current directory. */
 	currentdir = getcwd(buf, MAX_LENGH);
 	
 	/* List 12 files to be shown on screen (here, it is the first chunck) */
 	list_all_files(currentdir);
+	
+	update_entirescreen();
 	
 	/* Refresh everything on screen */
 	refresh_cursor(1);
@@ -208,33 +215,44 @@ int main(int argc, char *argv[])
 			
 				if (ESC_state == 1)
 				{
+#ifdef EXECUTE_APP
 					file_chosen = 0;
+#endif
+					exit_app = 1;
 				}
 			
 			
-			/* If Control button is pressed... */
-			if (CTRL_state == 1)
-			{
-				/* If file is a tns file then launch it */
-				if (file_type[fileid_selected] == BLUE_C) 
+				/* If Control button is pressed... */
+				if (CTRL_state == 1)
 				{
-					sprintf(final, "%s/%s", currentdir, file_name[fileid_selected]);
-					file_chosen = 1;
-					ESC_state = 1;
+					/* If file is a tns file then launch it */
+					if (file_type[fileid_selected] == BLUE_C) 
+					{
+						sprintf(final, "%s/%s", currentdir, file_name[fileid_selected]);
+						#ifdef EXECUTE_APP
+							file_chosen = 1;
+							ESC_state = 1;
+						#else
+							#ifdef NSPIRE
+								nl_exec(final, 0, NULL);
+							#endif	
+						#endif
+					}
+					/* If not then it is a folder, if thats the case then go to that folder */
+					else if (file_type[fileid_selected] == F_C || choice == 0) 
+					{
+						goto_folder();
+					}
+				
 				}
-				/* If not then go to that folder */
-				else
-				{
-					goto_folder();
-				}
-			}
 			
 			/* Don't waste CPU cycles */
-#ifndef ndlib
-			SDL_Delay(16);
-#endif
+			#ifndef ndlib
+				SDL_Delay(16);
+			#endif
 		}
 	
+#ifdef EXECUTE_APP
 		if (file_chosen == 1)
 		{
 			#ifdef ndlib
@@ -243,27 +261,31 @@ int main(int argc, char *argv[])
 				if (gui_screen != NULL) SDL_FreeSurface(gui_screen);
 				SDL_QuitSubSystem(SDL_INIT_VIDEO);
 			#endif
-			
+				
 			while(done == 1)
-			{
-				lamenes(final);
-				done = 0;
-			}
-			
-			done = 1;
-			file_chosen = 0;
-			ESC_state = 2;
-			ESC_time = 0;
-			init();
-			currentdir = getcwd(buf, MAX_LENGH);
-			refresh_cursor(2);
+				{
+					lamenes(final);
+					done = 0;
+				}
+				
+				done = 1;
+				file_chosen = 0;
+				ESC_state = 2;
+				ESC_time = 0;
+				init();
+				clear_entirescreen();
+				currentdir = getcwd(buf, MAX_LENGH);
+				list_all_files(currentdir);
+				update_entirescreen();
+				refresh_cursor(2);
 		}
 		else
 		{
-			exit_app = 1;
+				exit_app = 1;
 		}
-	
+#endif
 	}
+
 
 #ifdef ndlib
 	clearBufferB();
@@ -273,10 +295,9 @@ int main(int argc, char *argv[])
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
 	SDL_Quit();
 #endif
-	
+
 	exit(0);
 }
-
 
 void controls()
 {
@@ -407,7 +428,7 @@ void controls()
 			}
 		break;
 	}
-	
+
     switch (ESC_state)
     {
 		case 0:
@@ -443,6 +464,45 @@ void controls()
 			{
 				ESC_state = 0;
 				ESC_time = 0;
+			}
+		break;
+	}
+
+    switch (BACKSPACE_state)
+    {
+		case 0:
+			if (backspace_button)
+			{
+				BACKSPACE_state = 1;
+				BACKSPACE_time = 0;
+			}
+		break;
+		
+		case 1:
+			BACKSPACE_time = BACKSPACE_time + 1;
+			
+			if (BACKSPACE_time > 0)
+			{
+				BACKSPACE_state = 2;
+				BACKSPACE_time = 0;
+			}
+		break;
+		
+		case 2:
+			if (!(backspace_button))
+			{
+				BACKSPACE_state = 3;
+				BACKSPACE_time = 0;
+			}
+		break;
+		
+		case 3:
+			BACKSPACE_time = BACKSPACE_time + 1;
+			
+			if (BACKSPACE_time > 1)
+			{
+				BACKSPACE_state = 0;
+				BACKSPACE_time = 0;
 			}
 		break;
 	}
@@ -500,6 +560,19 @@ void controls()
 		esc = 0;
 	}
 	
+#ifdef ndlib
+	if (isKeyPressed(KEY_NSPIRE_DEL))	
+#else
+	if (keystate[SDLK_BACKSPACE])
+#endif
+	{
+		backspace_button = 1;
+	}
+	else
+	{
+		backspace_button = 0;
+	}
+	
 #ifndef ndlib
     SDL_Event event;
     SDL_PollEvent(&event);
@@ -512,12 +585,143 @@ void set_fileid()
 	fileid_selected = choice + (scroll_choice*12);
 }
 
+/* 
+ * Function to remove the file/folder:
+ * First, it asks (via function delete_file_screen) if it wants to delete it
+ * delete_file_screen() function returns the result
+ * If it returns 1 ("YES") then the file/folder is deleted
+ * If no, nothing happens
+*/
+void remove_file()
+{
+	char final[MAX_LENGH];
+	int result;
+	int isdeleted;
+	
+	result = -1;
+	isdeleted = -1;
+	
+	last_folder = currentdir;
+	
+#ifdef NSPIRE
+	if (file_type[fileid_selected] == F_C) 
+	{
+		sprintf(final, "%s%s/", currentdir, file_name[fileid_selected]);
+	}
+	else
+	{
+		sprintf(final, "%s%s", currentdir, file_name[fileid_selected]);
+	}
+#else
+		sprintf(final, "%s/%s", currentdir, file_name[fileid_selected]);
+#endif
+
+	printf("%d\n",file_type[fileid_selected]);
+	
+	result = delete_file_screen();
+	
+	if (result == 1)
+	{	
+		if (file_type[fileid_selected] == F_C) 
+		{
+			isdeleted = clear_dir(final);
+		}
+		else
+		{
+			isdeleted = unlink(final);
+		}
+	}
+	
+	printf("%s\n",last_folder);
+	
+	list_all_files(last_folder);
+	
+	if (isdeleted == 0)
+	{
+		refresh_cursor(4);
+	}
+	else
+	{
+		refresh_cursor(3);
+	}
+	
+}
+
+unsigned char delete_file_screen()
+{
+	unsigned char choose_request;
+	unsigned char done_request;
+	choose_request = 0;
+	done_request = 1;
+	
+	clear_entirescreen();
+		
+	if (file_type[fileid_selected] == F_C) 
+	{
+		print_string("Do you want to delete this folder ?",RED_C,0,0,60);	
+	}
+	else
+	{
+		print_string("Do you want to delete this file ?",RED_C,0,0,0);
+	}
+	
+	print_string(file_name[fileid_selected],F_C,0,8,26);
+	print_string("NO",F_C,0,32,80);
+	print_string("YES",BLUE_C,0,32,100);
+	
+	CTRL_state = 2;
+	CTRL_time = 0;
+	
+	update_entirescreen();
+	
+	while(done_request==1)
+	{
+		controls();
+		
+		if (UP_state > 0)
+		{
+			clear_entirescreen();
+			print_string(file_name[fileid_selected],F_C,0,8,26);
+			print_string("NO",F_C,0,32,80);
+			print_string("YES",BLUE_C,0,32,100);
+			update_entirescreen();
+			choose_request = 0;
+		}
+		else if (DOWN_state > 0)
+		{
+			clear_entirescreen();
+			print_string(file_name[fileid_selected],F_C,0,8,26);
+			print_string("NO",BLUE_C,0,32,80);
+			print_string("YES",F_C,0,32,100);
+			update_entirescreen();
+			choose_request = 1;
+		}
+		
+		if (CTRL_state == 1)
+		{
+			done_request = 0;
+		}
+		
+		/* Don't waste CPU cycles */
+		#ifndef ndlib
+			SDL_Delay(2);
+		#endif
+	}
+	
+	return choose_request;
+}
+
 void goto_folder()
 {
 	#ifndef NSPIRE
-		char buf[MAX_LENGH];
+		char buf[1024];
 	#endif
+	
+#ifdef NSPIRE
+	sprintf(currentdir, "%s%s", currentdir, file_name[fileid_selected]);
+#else
 	sprintf(currentdir, "%s/%s", currentdir, file_name[fileid_selected]);
+#endif
 	
 	#ifdef NSPIRE
 		/* Set the current directory (with lots of "..") to the chosen one */
@@ -549,7 +753,6 @@ void draw_files_list()
 	}
 }
 
-
 void refresh_cursor(unsigned char all)
 {	
 	if (all == 2)
@@ -557,19 +760,11 @@ void refresh_cursor(unsigned char all)
 		choice = 0;
 		scroll_choice = 0;
 		set_fileid();
-#ifdef ndlib
-		clearBufferB();
-#else
-		SDL_FillRect(gui_screen, &gui_dst2, 0);
-#endif
+		clear_entirescreen();
 	}
-	else if (all == 3)
+	else if (all == 3 || all == 4)
 	{
-#ifdef ndlib
-		clearBufferB();
-#else
-		SDL_FillRect(gui_screen, &gui_dst2, 0);
-#endif
+		clear_entirescreen();
 	}
 	
 	/* Update position of cursor so we can limit the area to refresh*/
@@ -582,19 +777,21 @@ void refresh_cursor(unsigned char all)
 #endif
 	
 	/* Then draw the cursor again after being cleared, it will be shown after we passed SDL_Flip/UpdateRect to it*/
-	print_string("=>",GREEN_C,0,16,40+(choice*16) );
+	print_string("=>",RED_C,0,16,40+(choice*16) );
 	
 	draw_files_list();
 	
 	if (all == 1 || all == 2 || all == 3)
 	{
 		print_string(currentdir,GREEN_C,0,8,16);
-		print_string("SELECT A NES ROM",1200,0,8,6 );
-#ifdef ndlib
-		updateScreen();
-#else		
-		SDL_Flip(gui_screen);
-#endif
+		print_string("Select NES ROM",1200,0,8,6 );
+		update_entirescreen();
+	}
+	else if (all == 4 )
+	{
+		print_string(currentdir,GREEN_C,0,8,16);
+		print_string("File deleted !",1200,0,8,6 );
+		update_entirescreen();
 	}
 	else
 	{
@@ -605,6 +802,25 @@ void refresh_cursor(unsigned char all)
 #endif
 	}
 }
+
+void clear_entirescreen()
+{
+	#ifdef ndlib
+		clearBufferB();
+	#else
+		SDL_FillRect(gui_screen, &gui_dst2, 0);
+	#endif
+}
+
+void update_entirescreen()
+{
+	#ifdef ndlib
+		updateScreen();
+	#else	
+		SDL_Flip(gui_screen);
+	#endif
+}
+
 
 void list_all_files(char* directory)
 {
@@ -623,7 +839,7 @@ void list_all_files(char* directory)
 
 	short pc;
 	
-	/* Reset all the stored files to zero*/
+	/* Reset all the stored files to zero */
 	for(i=0;i<MAX_LENGH;i++)
 	{
 		strcpy(file_name[i], "");
@@ -648,22 +864,27 @@ void list_all_files(char* directory)
 			}
 			
 			/* Finds .tns occurence */
-			char* pch = strstr (ent->d_name,".nes.tns");
-			char* pch4 = strstr (ent->d_name,".nes");
-			/* Reject these two signs */
+#ifdef NSPIRE
+			char* pch = strstr (ent->d_name,".tns");
+#else
+			char* pch = strstr (ent->d_name,".nes");
+#endif
+			
+			/* Reject these two signs and the executable itself */
 			char* pch2 = strstr (ent->d_name,"..");
+			char* pch3 = strstr (ent->d_name,"filebrw.tns");
 			pc = strncmp (ent->d_name, ".", 2);
-
+			
 			/* Check if file in question is a folder */
 			temp = is_folder(ent->d_name);
 			
-			/* If file has ".tns" extension, is a folder AND is not ".." and "." */
-			if ( ((pch != NULL || pch4 != NULL) || (temp)) && (pch2 == NULL && pc != 0) )
+			/* If file has ".tns" extension, is a folder and is not ".." and "." */
+			if ((pch2 == NULL && pch3 == NULL && pc != 0))
 			{
 				/* Copy string cotent from ent->d_name to file_name[i]*/
 				strcpy(file_name[i], ent->d_name);
 				
-				if (pch != NULL || pch4 != NULL)
+				if (pch != NULL)
 				{
 					file_type[i] = BLUE_C;
 				}
@@ -734,7 +955,7 @@ void print_string(char *s, unsigned short fg_color, unsigned short bg_color, int
 #endif
 }
 
-/* Is the string a folder ? */
+/* Is the path a folder ? */
 unsigned char is_folder(char* str1)
 {
 	struct stat st;
@@ -750,4 +971,55 @@ unsigned char is_folder(char* str1)
 	}
 	 
 	return temp;
+}
+
+
+unsigned char clear_dir(char* which_dir)
+{
+  DIR  *d;
+  struct dirent *dir;
+  char file[MAX_LENGH];
+  
+  d = opendir(which_dir);
+  
+  if (d)
+  {
+     while ((dir = readdir(d)) != NULL)
+     {
+        // exclude directories
+        if( strcmp( dir->d_name, "." ) == 0 || strcmp( dir->d_name, ".." ) == 0)
+        {
+           continue;
+        }
+
+        sprintf(file,"%s/%s", which_dir, dir->d_name);
+
+        if (opendir(file)!=NULL) //if file actually is a dir
+        {
+           clear_dir(file);
+        }
+        else
+        {
+           if (remove(file) == -1)
+           {
+              printf("\n%s\n", file);
+              perror("Remove failed");
+              return 1;
+           }
+        }
+     }
+
+     closedir(d);
+
+     // Deleting directory
+     if (rmdir(which_dir) == -1)
+     {
+        printf("%s\n", which_dir);
+        perror("Remove failed");
+        return 1;
+     }
+
+   }
+  
+   return(0);
 }
